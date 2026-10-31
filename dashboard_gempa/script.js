@@ -1,6 +1,6 @@
 /* ============================================================
    script.js – Dashboard Gempa Terkini Indonesia
-   Vanilla JavaScript · Chart.js · BMKG API
+   Vanilla JavaScript · Chart.js · Leaflet.js · BMKG API
    ============================================================ */
 
 'use strict';
@@ -20,6 +20,9 @@ const BMKG_IMG_BASE    = 'https://data.bmkg.go.id/DataMKG/TEWS/';
 /** Rows displayed per page in the table */
 const ROWS_PER_PAGE    = 10;
 
+/** Auto-refresh interval in milliseconds (5 minutes) */
+const AUTO_REFRESH_MS  = 5 * 60 * 1000;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // GLOBAL STATE
 // ─────────────────────────────────────────────────────────────────────────────
@@ -32,6 +35,15 @@ let sortDirection    = 'desc';  // 'asc' | 'desc'
 
 // Chart instances (kept to allow destroy/re-render on filter change)
 const charts = {};
+
+// Leaflet map instance and marker layer group
+let leafletMap       = null;
+let markerLayer      = null;
+
+// Auto-refresh timer handles
+let refreshIntervalId   = null;
+let countdownIntervalId = null;
+let nextRefreshAt       = null;   // Date timestamp
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DOM HELPERS
@@ -108,16 +120,23 @@ async function loadData() {
 
   // Update data source badge
   const badge = $('data-source-badge');
+  // Remove any previously set colour classes before assigning new ones
+  badge.className = badge.className
+    .replace(/bg-\w+-\d+/g, '')
+    .replace(/text-\w+-\d+/g, '')
+    .trim();
+
   if (usedFallback) {
     badge.textContent = '⚠ Data Cadangan (Offline)';
-    badge.className = badge.className.replace('bg-slate-600 text-slate-300', 'bg-amber-500 text-white');
+    badge.classList.add('bg-amber-500', 'text-white');
   } else {
     badge.textContent = '● Data Live – BMKG';
-    badge.className = badge.className.replace('bg-slate-600 text-slate-300', 'bg-green-600 text-white');
+    badge.classList.add('bg-green-600', 'text-white');
   }
 
-  // Timestamp
-  $('last-updated').textContent = 'Diperbarui: ' + new Date().toLocaleString('id-ID', {
+  // Timestamp in header
+  const now = new Date();
+  $('last-updated').textContent = 'Diperbarui: ' + now.toLocaleString('id-ID', {
     day: '2-digit', month: 'short', year: 'numeric',
     hour: '2-digit', minute: '2-digit'
   });
@@ -129,10 +148,16 @@ async function loadData() {
 
   // Render dashboard
   renderLatestCard(latestGempa);
-  applyFilters();   // builds KPIs, charts, table
+  applyFilters();   // builds KPIs, charts, table, and map
 
   hide('loading-overlay');
   show('dashboard-content');
+
+  // Show refresh controls after first successful load
+  show('refresh-bar');
+
+  // Start (or restart) the auto-refresh cycle
+  startAutoRefresh();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -274,6 +299,7 @@ function applyFilters() {
 
   renderKPIs();
   renderAllCharts();
+  renderMap();    // ← update map markers to match filter
   renderTable();
 }
 
@@ -333,6 +359,156 @@ function renderAllCharts() {
   renderDepthChart();
   renderRegionChart();
   renderScatterChart();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INTERACTIVE MAP (Leaflet.js)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Initialise the Leaflet map once (centred on Indonesia).
+ * Called once after the dashboard content is shown.
+ */
+function initMap() {
+  if (leafletMap) return;   // already initialised
+
+  // Create the map, centred on Indonesia
+  leafletMap = L.map('gempa-map', {
+    center: [-2.5, 118],
+    zoom: 5,
+    zoomControl: true,
+    attributionControl: true,
+  });
+
+  // OpenStreetMap tile layer
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18,
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  }).addTo(leafletMap);
+
+  // Layer group to hold earthquake markers (easy to clear on re-render)
+  markerLayer = L.layerGroup().addTo(leafletMap);
+}
+
+/**
+ * Return Leaflet circle marker options based on magnitude.
+ * @param {number} mag
+ * @returns {{ color: string, fillColor: string, radius: number }}
+ */
+function markerOptions(mag) {
+  let color, fillColor;
+  if (mag >= 6)      { color = '#b91c1c'; fillColor = '#ef4444'; }
+  else if (mag >= 4) { color = '#b45309'; fillColor = '#f59e0b'; }
+  else               { color = '#15803d'; fillColor = '#22c55e'; }
+
+  // Radius scales with magnitude (min 5, max 20)
+  const radius = Math.max(5, Math.min(20, 3 + mag * 2));
+
+  return { color, fillColor, fillOpacity: 0.75, weight: 1.5, radius };
+}
+
+/**
+ * Parse lat/lng from BMKG earthquake object.
+ * Tries Coordinates field first ("lat,lng"), then Lintang/Bujur strings.
+ * @returns {{ lat: number, lng: number } | null}
+ */
+function parseCoords(eq) {
+  // 1) Try "Coordinates": "-8.23,116.45"
+  if (eq.Coordinates) {
+    const parts = eq.Coordinates.split(',');
+    if (parts.length === 2) {
+      const lat = parseFloat(parts[0]);
+      const lng = parseFloat(parts[1]);
+      if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
+    }
+  }
+  // 2) Try Lintang + Bujur: "8.23 LS" / "116.45 BT"
+  if (eq.Lintang && eq.Bujur) {
+    let lat = parseFloat(eq.Lintang);
+    let lng = parseFloat(eq.Bujur);
+    if (!isNaN(lat) && !isNaN(lng)) {
+      if (/LS/i.test(eq.Lintang)) lat = -Math.abs(lat);
+      if (/BB/i.test(eq.Bujur))   lng = -Math.abs(lng);
+      return { lat, lng };
+    }
+  }
+  return null;
+}
+
+/**
+ * Re-render all earthquake markers on the map from filteredData.
+ * Clears previous markers first.
+ */
+function renderMap() {
+  // Ensure map is initialised
+  initMap();
+
+  // Clear existing markers
+  markerLayer.clearLayers();
+
+  let plotted = 0;
+
+  filteredData.forEach(eq => {
+    const coords = parseCoords(eq);
+    if (!coords) return;
+
+    const { lat, lng } = coords;
+    const opts = markerOptions(eq._mag);
+    const hasTsunami = (eq.Potensi ?? '').toLowerCase().includes('tsunami')
+      && !(eq.Potensi ?? '').toLowerCase().includes('tidak');
+
+    // Build popup HTML
+    const popupHtml = `
+      <div class="gempa-popup">
+        <div class="gempa-popup-header" style="background:${opts.fillColor}22; border-bottom:1px solid ${opts.fillColor}44">
+          <span class="mag-badge ${magBadgeClass(eq._mag)}" style="font-size:1rem;padding:0.2rem 0.6rem;">${eq._mag.toFixed(1)}</span>
+          <span style="font-size:0.8rem;font-weight:600;color:#1e293b;">${eq.Wilayah ?? '–'}</span>
+        </div>
+        <div class="gempa-popup-body">
+          <p><strong>Tanggal</strong>${eq.Tanggal ?? '–'} · ${eq.Jam ?? ''}</p>
+          <p><strong>Kedalaman</strong><span class="depth-badge depth-${eq._depthCat}">${eq.Kedalaman}</span></p>
+          <p><strong>Koordinat</strong>${lat.toFixed(3)}, ${lng.toFixed(3)}</p>
+          <p style="color:${hasTsunami ? '#b91c1c' : '#64748b'};font-weight:${hasTsunami ? '700' : '400'}">
+            <strong>Potensi</strong>${eq.Potensi ?? '–'}
+          </p>
+        </div>
+      </div>`;
+
+    const marker = L.circleMarker([lat, lng], opts);
+    marker.bindPopup(popupHtml, { maxWidth: 300, className: '' });
+
+    // For large earthquakes (M≥6), also add a pulsing outer ring
+    if (eq._mag >= 6) {
+      const pulseOpts = {
+        ...opts,
+        radius: opts.radius + 6,
+        fillOpacity: 0,
+        weight: 2,
+        opacity: 0.5,
+        className: 'pulse-marker',
+      };
+      L.circleMarker([lat, lng], pulseOpts).addTo(markerLayer);
+    }
+
+    marker.addTo(markerLayer);
+    plotted++;
+  });
+
+  // Update counter
+  const countEl = $('map-count');
+  if (countEl) countEl.textContent = `${plotted} titik ditampilkan`;
+
+  // If we have points, fit the map bounds to show all markers
+  if (plotted > 0) {
+    try {
+      const bounds = markerLayer.getLayers()
+        .filter(l => l.getLatLng)
+        .map(l => l.getLatLng());
+      if (bounds.length > 0) {
+        leafletMap.fitBounds(L.latLngBounds(bounds), { padding: [30, 30], maxZoom: 8 });
+      }
+    } catch (_) { /* ignore bounds errors */ }
+  }
 }
 
 /* ---- 1. Trend: gempa count per date ---- */
@@ -693,6 +869,126 @@ function renderTable() {
 // STYLE HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+// CSV EXPORT
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Export filteredData as a CSV file and trigger a browser download.
+ * Uses only data currently visible (post-filter).
+ */
+function exportCSV() {
+  if (filteredData.length === 0) return;
+
+  // CSV header row
+  const headers = ['Tanggal', 'Jam', 'Magnitudo', 'Kedalaman (km)', 'Kategori Kedalaman', 'Wilayah', 'Lintang', 'Bujur', 'Potensi'];
+
+  // Escape a CSV cell value (wrap in quotes if contains comma/newline/quote)
+  const escCell = val => {
+    const s = String(val ?? '').replace(/"/g, '""');
+    return /[",\n\r]/.test(s) ? `"${s}"` : s;
+  };
+
+  const rows = filteredData.map(eq => [
+    escCell(eq.Tanggal),
+    escCell(eq.Jam),
+    escCell(eq._mag.toFixed(1)),
+    escCell(eq._depth),
+    escCell(eq._depthCat),
+    escCell(eq.Wilayah),
+    escCell(eq.Lintang),
+    escCell(eq.Bujur),
+    escCell(eq.Potensi),
+  ].join(','));
+
+  const csvContent = [headers.join(','), ...rows].join('\r\n');
+  const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+
+  // Create a temporary anchor and click it
+  const url  = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href     = url;
+  link.download = `gempa_indonesia_${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+
+  // Visual feedback: flash the button
+  const btn = $('btn-export-csv');
+  if (btn) {
+    btn.classList.add('btn-flash');
+    setTimeout(() => btn.classList.remove('btn-flash'), 500);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUTO-REFRESH
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Start (or restart) the 5-minute auto-refresh cycle.
+ * Clears any existing timers before setting new ones.
+ */
+function startAutoRefresh() {
+  // Clear previous timers
+  clearInterval(refreshIntervalId);
+  clearInterval(countdownIntervalId);
+
+  nextRefreshAt = Date.now() + AUTO_REFRESH_MS;
+
+  // Tick every second to update countdown display
+  countdownIntervalId = setInterval(updateCountdown, 1000);
+  updateCountdown();   // call immediately for instant display
+
+  // Schedule the actual data refresh
+  refreshIntervalId = setInterval(async () => {
+    // Reset UI to loading state (soft refresh – don't show full overlay again)
+    const badge = $('data-source-badge');
+    const prevText = badge.textContent;
+    badge.textContent = '↻ Memperbarui...';
+
+    await loadData();   // reloads data, re-renders everything, calls startAutoRefresh again
+  }, AUTO_REFRESH_MS);
+}
+
+/**
+ * Update the countdown display in the header refresh bar.
+ * Shows "Refresh dalam X:XX" with a shrinking SVG ring.
+ */
+function updateCountdown() {
+  const el = $('refresh-countdown');
+  if (!el || !nextRefreshAt) return;
+
+  const remaining = Math.max(0, nextRefreshAt - Date.now());
+  const totalSec  = AUTO_REFRESH_MS / 1000;
+  const remSec    = Math.ceil(remaining / 1000);
+  const mins      = Math.floor(remSec / 60);
+  const secs      = remSec % 60;
+  const progress  = remaining / AUTO_REFRESH_MS;   // 1 → 0
+
+  // SVG ring circumference for a r=5 circle: 2π·5 ≈ 31.4
+  const circumference = 31.42;
+  const dashOffset    = circumference * (1 - progress);
+
+  el.innerHTML = `
+    <span class="countdown-wrap">
+      <svg class="countdown-ring" viewBox="0 0 14 14">
+        <circle cx="7" cy="7" r="5" stroke="#e2e8f0" stroke-width="2" fill="none"/>
+        <circle cx="7" cy="7" r="5" stroke="#f97316"
+          stroke-dasharray="${circumference}"
+          stroke-dashoffset="${dashOffset.toFixed(2)}"
+          stroke-width="2" fill="none"
+          style="transform:rotate(-90deg);transform-origin:center;transition:stroke-dashoffset 1s linear"/>
+      </svg>
+      Refresh dalam ${mins}:${String(secs).padStart(2, '0')}
+    </span>`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STYLE HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+
 /** Return Tailwind bg/text colour classes and label based on magnitude */
 function magStyle(mag) {
   if (mag >= 7)   return { bg: 'bg-rose-900',   text: 'text-rose-200',   label: 'Dahsyat ≥7'  };
@@ -727,6 +1023,16 @@ function debounce(fn, ms = 250) {
 }
 
 function attachEventListeners() {
+  // CSV export
+  $('btn-export-csv').addEventListener('click', exportCSV);
+
+  // Manual refresh now
+  $('btn-refresh-now').addEventListener('click', () => {
+    clearInterval(refreshIntervalId);
+    clearInterval(countdownIntervalId);
+    loadData();   // loadData calls startAutoRefresh() at the end
+  });
+
   // Magnitude slider – update displayed value + filter
   const magMinSlider = $('filter-mag-min');
   const magMaxSlider = $('filter-mag-max');

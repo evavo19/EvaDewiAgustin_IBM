@@ -228,3 +228,144 @@ canvas {
   .kpi-value { font-size: 1.5rem; }
   .kpi-sub   { max-width: 120px;  }
 }
+
+/* ============================================================
+   NEW FEATURES: Map, Auto-refresh, Export
+   ============================================================ */
+
+/* ----- Leaflet map container ----- */
+.map-container {
+  height: 420px;
+  width: 100%;
+  background: #f1f5f9;
+  /* z-index stacking: ensure Leaflet controls sit above page elements */
+  position: relative;
+  z-index: 0;
+}
+
+@media (max-width: 639px) {
+  .map-container { height: 280px; }
+}
+
+/* Ensure Leaflet tile layer renders above bg */
+.leaflet-container {
+  font-family: -apple-system, 'Segoe UI', system-ui, sans-serif;
+  font-size: 12px;
+}
+
+/* Custom Leaflet popup styling */
+.leaflet-popup-content-wrapper {
+  border-radius: 0.75rem !important;
+  box-shadow: 0 4px 16px rgb(0 0 0 / .15) !important;
+  border: 1px solid #e2e8f0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.leaflet-popup-content {
+  margin: 0 !important;
+  width: auto !important;
+}
+
+.leaflet-popup-tip {
+  background: #ffffff !important;
+}
+
+/* Popup inner layout */
+.gempa-popup {
+  min-width: 220px;
+  max-width: 280px;
+}
+
+.gempa-popup-header {
+  padding: 0.6rem 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.gempa-popup-body {
+  padding: 0.5rem 0.9rem 0.75rem;
+  background: #ffffff;
+}
+
+.gempa-popup-body p {
+  font-size: 0.75rem;
+  color: #475569;
+  margin: 0.2rem 0;
+  display: flex;
+  gap: 0.4rem;
+}
+
+.gempa-popup-body p strong {
+  color: #1e293b;
+  font-weight: 600;
+  min-width: 72px;
+}
+
+/* Pulse animation for map markers (large earthquakes) */
+@keyframes pulse-ring {
+  0%   { transform: scale(1);   opacity: 0.8; }
+  100% { transform: scale(2.2); opacity: 0;   }
+}
+
+.marker-pulse::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  animation: pulse-ring 1.6s ease-out infinite;
+}
+
+/* ----- Auto-refresh countdown ring ----- */
+.countdown-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  color: #94a3b8;
+}
+
+.countdown-ring {
+  width: 14px;
+  height: 14px;
+}
+
+.countdown-ring circle {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  transform-origin: center;
+  transform: rotate(-90deg);
+  transition: stroke-dashoffset 1s linear;
+}
+
+/* ----- Export button pulse on download ----- */
+@keyframes btn-flash {
+  0%   { opacity: 1; }
+  50%  { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+.btn-flash {
+  animation: btn-flash 0.4s ease;
+}
+
+/* ----- Table: ensure horizontal scroll on mobile ----- */
+#gempa-table {
+  min-width: 600px;   /* force horizontal scroll on narrow screens */
+}
+
+/* Sticky first column on mobile for readability */
+@media (max-width: 639px) {
+  #gempa-table thead th:first-child,
+  #gempa-table tbody td:first-child {
+    position: sticky;
+    left: 0;
+    background: inherit;
+    z-index: 1;
+  }
+  #gempa-table thead th:first-child {
+    background: #f8fafc;
+  }
+}
