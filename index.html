@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard Gempa Terkini Indonesia – BMKG</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+
+  <!-- Custom Tailwind config -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50:  '#fff7ed',
+              100: '#ffedd5',
+              500: '#f97316',
+              600: '#ea580c',
+              700: '#c2410c',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Custom styles -->
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body class="bg-slate-100 text-slate-800 min-h-screen font-sans">
+
+  <!-- ===== HEADER ===== -->
+  <header class="bg-gradient-to-r from-slate-800 to-slate-700 text-white shadow-lg sticky top-0 z-50">
+    <div class="max-w-screen-2xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+      <div class="flex items-center gap-3">
+        <!-- Seismograph icon (SVG inline) -->
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-orange-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="2 12 6 12 8 4 10 20 12 10 14 14 16 12 22 12"/>
+        </svg>
+        <div>
+          <h1 class="text-xl sm:text-2xl font-bold leading-tight tracking-tight">Dashboard Gempa Terkini Indonesia</h1>
+          <p class="text-slate-400 text-xs sm:text-sm">Sumber data: Badan Meteorologi, Klimatologi, dan Geofisika (BMKG)</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3 mt-1 sm:mt-0">
+        <!-- Status indicator -->
+        <span id="data-source-badge" class="px-3 py-1 rounded-full text-xs font-semibold bg-slate-600 text-slate-300">Memuat...</span>
+        <span id="last-updated" class="text-slate-400 text-xs hidden sm:block"></span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===== MAIN CONTENT ===== -->
+  <main class="max-w-screen-2xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+    <!-- Loading overlay -->
+    <div id="loading-overlay" class="flex flex-col items-center justify-center py-24 gap-4">
+      <div class="loader"></div>
+      <p class="text-slate-500 text-sm animate-pulse">Mengambil data gempa dari BMKG…</p>
+    </div>
+
+    <!-- Error banner (hidden by default) -->
+    <div id="error-banner" class="hidden bg-red-50 border border-red-200 text-red-700 rounded-xl px-5 py-4 flex items-start gap-3">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 mt-0.5 flex-shrink-0 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div>
+        <p class="font-semibold text-sm">Gagal terhubung ke BMKG</p>
+        <p id="error-message" class="text-xs mt-0.5 text-red-600"></p>
+      </div>
+    </div>
+
+    <!-- Dashboard content (hidden while loading) -->
+    <div id="dashboard-content" class="hidden space-y-6">
+
+      <!-- ===== LATEST EARTHQUAKE CARD ===== -->
+      <section aria-label="Gempa Terbaru">
+        <h2 class="section-title">Gempa Terbaru</h2>
+        <div id="latest-card" class="bg-white rounded-2xl shadow-md border border-slate-200 p-5 sm:p-6 flex flex-col sm:flex-row gap-4 items-start hover:shadow-lg transition-shadow duration-300">
+          <!-- Filled dynamically -->
+        </div>
+      </section>
+
+      <!-- ===== KPI CARDS ===== -->
+      <section aria-label="Ringkasan Statistik">
+        <h2 class="section-title">Ringkasan Statistik</h2>
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="kpi-card" id="kpi-total">
+            <div class="kpi-icon bg-blue-100 text-blue-600">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3z"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
+            </div>
+            <div>
+              <p class="kpi-label">Total Kejadian</p>
+              <p class="kpi-value" id="val-total">–</p>
+              <p class="kpi-sub" id="val-total-sub"></p>
+            </div>
+          </div>
+
+          <div class="kpi-card" id="kpi-max-mag">
+            <div class="kpi-icon bg-red-100 text-red-600">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            </div>
+            <div>
+              <p class="kpi-label">Magnitudo Tertinggi</p>
+              <p class="kpi-value text-red-600" id="val-max-mag">–</p>
+              <p class="kpi-sub" id="val-max-mag-sub"></p>
+            </div>
+          </div>
+
+          <div class="kpi-card" id="kpi-avg-mag">
+            <div class="kpi-icon bg-amber-100 text-amber-600">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            </div>
+            <div>
+              <p class="kpi-label">Rata-rata Magnitudo</p>
+              <p class="kpi-value" id="val-avg-mag">–</p>
+              <p class="kpi-sub">Dari seluruh kejadian</p>
+            </div>
+          </div>
+
+          <div class="kpi-card" id="kpi-avg-depth">
+            <div class="kpi-icon bg-teal-100 text-teal-600">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="2" x2="12" y2="22"/><polyline points="17 7 12 2 7 7"/><polyline points="17 17 12 22 7 17"/></svg>
+            </div>
+            <div>
+              <p class="kpi-label">Rata-rata Kedalaman</p>
+              <p class="kpi-value" id="val-avg-depth">–</p>
+              <p class="kpi-sub">kilometer</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== FILTER PANEL ===== -->
+      <section aria-label="Filter Data">
+        <h2 class="section-title">Filter Data</h2>
+        <div class="bg-white rounded-2xl shadow-md border border-slate-200 p-5 sm:p-6">
+          <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 items-end">
+
+            <!-- Magnitude range min -->
+            <div class="flex flex-col gap-1.5">
+              <label for="filter-mag-min" class="filter-label">Magnitudo Minimum</label>
+              <div class="flex items-center gap-2">
+                <input type="range" id="filter-mag-min" min="0" max="10" step="0.1" value="0"
+                  class="flex-1 accent-orange-500 cursor-pointer" />
+                <span id="filter-mag-min-val" class="text-xs font-semibold w-8 text-right text-slate-700">0</span>
+              </div>
+            </div>
+
+            <!-- Magnitude range max -->
+            <div class="flex flex-col gap-1.5">
+              <label for="filter-mag-max" class="filter-label">Magnitudo Maksimum</label>
+              <div class="flex items-center gap-2">
+                <input type="range" id="filter-mag-max" min="0" max="10" step="0.1" value="10"
+                  class="flex-1 accent-orange-500 cursor-pointer" />
+                <span id="filter-mag-max-val" class="text-xs font-semibold w-8 text-right text-slate-700">10</span>
+              </div>
+            </div>
+
+            <!-- Depth category -->
+            <div class="flex flex-col gap-1.5">
+              <label for="filter-depth" class="filter-label">Kategori Kedalaman</label>
+              <select id="filter-depth"
+                class="rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-400 transition">
+                <option value="">Semua Kedalaman</option>
+                <option value="dangkal">Dangkal (≤ 60 km)</option>
+                <option value="menengah">Menengah (61–300 km)</option>
+                <option value="dalam">Dalam (&gt; 300 km)</option>
+              </select>
+            </div>
+
+            <!-- Region text search -->
+            <div class="flex flex-col gap-1.5">
+              <label for="filter-region" class="filter-label">Cari Wilayah</label>
+              <div class="relative">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" id="filter-region" placeholder="Misal: Papua, Lombok..."
+                  class="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-300 bg-slate-50 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-400 transition" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Reset + info row -->
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-4 pt-4 border-t border-slate-100">
+            <p class="text-xs text-slate-500">Menampilkan <span id="filter-count" class="font-semibold text-slate-700">0</span> dari <span id="filter-total" class="font-semibold text-slate-700">0</span> kejadian gempa</p>
+            <button id="btn-reset-filter"
+              class="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-100 hover:bg-orange-50 hover:text-orange-600 text-slate-600 text-sm font-medium border border-slate-200 hover:border-orange-300 transition-all duration-200">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.9"/></svg>
+              Reset Filter
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== CHARTS ROW 1: Trend + Magnitude Distribution ===== -->
+      <section aria-label="Visualisasi Utama">
+        <h2 class="section-title">Visualisasi Data</h2>
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <div class="chart-card">
+            <h3 class="chart-title">Tren Jumlah Gempa per Tanggal</h3>
+            <div class="chart-wrap">
+              <canvas id="chart-trend"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <h3 class="chart-title">Distribusi Kategori Magnitudo</h3>
+            <div class="chart-wrap">
+              <canvas id="chart-magnitude"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== CHARTS ROW 2: Depth + Top Regions + Scatter ===== -->
+      <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <div class="chart-card">
+          <h3 class="chart-title">Distribusi Kedalaman Gempa</h3>
+          <div class="chart-wrap">
+            <canvas id="chart-depth"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <h3 class="chart-title">Top 10 Wilayah Terbanyak</h3>
+          <div class="chart-wrap h-64 sm:h-72">
+            <canvas id="chart-region"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <h3 class="chart-title">Magnitudo vs Kedalaman</h3>
+          <div class="chart-wrap">
+            <canvas id="chart-scatter"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== EARTHQUAKE TABLE ===== -->
+      <section aria-label="Tabel Daftar Gempa">
+        <div class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
+          <div class="px-5 sm:px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+            <h3 class="font-semibold text-slate-700 text-base">Daftar Gempa Terbaru</h3>
+            <p class="text-xs text-slate-400">Klik judul kolom untuk mengurutkan data</p>
+          </div>
+          <!-- Scrollable table wrapper for mobile -->
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm" id="gempa-table">
+              <thead class="bg-slate-50 text-slate-600 text-left">
+                <tr>
+                  <th class="sortable px-4 py-3 font-semibold cursor-pointer select-none whitespace-nowrap" data-col="Tanggal">
+                    Tanggal &amp; Jam <span class="sort-icon">↕</span>
+                  </th>
+                  <th class="sortable px-4 py-3 font-semibold cursor-pointer select-none whitespace-nowrap" data-col="Magnitude">
+                    Magnitudo <span class="sort-icon">↕</span>
+                  </th>
+                  <th class="sortable px-4 py-3 font-semibold cursor-pointer select-none whitespace-nowrap" data-col="Kedalaman">
+                    Kedalaman <span class="sort-icon">↕</span>
+                  </th>
+                  <th class="px-4 py-3 font-semibold whitespace-nowrap">Wilayah</th>
+                  <th class="px-4 py-3 font-semibold whitespace-nowrap">Potensi</th>
+                </tr>
+              </thead>
+              <tbody id="gempa-table-body" class="divide-y divide-slate-100">
+                <!-- Rows injected by JS -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Empty state -->
+          <div id="table-empty" class="hidden text-center py-12 text-slate-400 text-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 mx-auto mb-2 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            Tidak ada data yang cocok dengan filter saat ini.
+          </div>
+
+          <!-- Pagination controls -->
+          <div class="px-5 sm:px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p class="text-xs text-slate-500">
+              Halaman <span id="page-current">1</span> dari <span id="page-total">1</span>
+              &nbsp;·&nbsp; <span id="page-range-info"></span>
+            </p>
+            <div class="flex items-center gap-2">
+              <button id="btn-prev-page" class="page-btn" disabled>← Sebelumnya</button>
+              <button id="btn-next-page" class="page-btn">Berikutnya →</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div><!-- /dashboard-content -->
+  </main>
+
+  <!-- ===== FOOTER ===== -->
+  <footer class="mt-8 border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-400">
+    Dashboard Gempa Terkini Indonesia · Data bersumber dari
+    <a href="https://www.bmkg.go.id" target="_blank" rel="noopener noreferrer" class="text-orange-500 hover:underline font-medium">BMKG</a>
+    · Dibuat dengan HTML, Tailwind CSS &amp; Chart.js
+  </footer>
+
+  <!-- Script -->
+  <script src="script.js"></script>
+</body>
+</html>

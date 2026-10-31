@@ -1,0 +1,230 @@
+/* ============================================================
+   style.css – Custom additions beyond Tailwind utility classes
+   Dashboard Gempa Terkini Indonesia
+   ============================================================ */
+
+/* ----- Loading spinner ----- */
+.loader {
+  width: 48px;
+  height: 48px;
+  border: 5px solid #e2e8f0;
+  border-top-color: #f97316; /* orange-500 */
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ----- Section heading ----- */
+.section-title {
+  font-size: 0.8125rem;       /* 13px */
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #94a3b8;              /* slate-400 */
+  margin-bottom: 0.75rem;
+}
+
+/* ----- KPI card ----- */
+.kpi-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  padding: 1.25rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / .07);
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
+}
+
+.kpi-card:hover {
+  box-shadow: 0 6px 20px 0 rgb(0 0 0 / .1);
+  transform: translateY(-2px);
+}
+
+.kpi-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.75rem;
+  flex-shrink: 0;
+}
+
+.kpi-label {
+  font-size: 0.75rem;
+  color: #64748b; /* slate-500 */
+  font-weight: 500;
+}
+
+.kpi-value {
+  font-size: 1.875rem;   /* text-3xl */
+  font-weight: 800;
+  color: #1e293b;        /* slate-800 */
+  line-height: 1.15;
+  margin-top: 0.1rem;
+}
+
+.kpi-sub {
+  font-size: 0.7rem;
+  color: #94a3b8;  /* slate-400 */
+  margin-top: 0.15rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+}
+
+/* ----- Chart card ----- */
+.chart-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  padding: 1.25rem 1.25rem 1rem;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / .07);
+  transition: box-shadow 0.25s ease;
+}
+
+.chart-card:hover {
+  box-shadow: 0 6px 20px 0 rgb(0 0 0 / .09);
+}
+
+.chart-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #334155; /* slate-700 */
+  margin-bottom: 0.75rem;
+}
+
+/* Fixed-height wrapper so Canvas doesn't overflow */
+.chart-wrap {
+  position: relative;
+  height: 220px;
+}
+
+/* Taller wrap for bar chart */
+.chart-wrap.h-64 { height: 256px; }
+.chart-wrap.h-72 { height: 288px; }
+
+/* ----- Filter label ----- */
+.filter-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+/* ----- Table sortable header ----- */
+.sortable:hover {
+  background-color: #f1f5f9;
+  color: #f97316;
+}
+
+.sort-icon {
+  opacity: 0.4;
+  font-size: 0.7rem;
+  margin-left: 2px;
+}
+
+.sort-asc  .sort-icon { opacity: 1; }
+.sort-desc .sort-icon { opacity: 1; }
+
+/* ----- Table row hover ----- */
+#gempa-table tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+#gempa-table tbody tr:hover {
+  background-color: #fef9f0;
+}
+
+/* ----- Magnitude badge ----- */
+.mag-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.75rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 9999px;
+  font-weight: 700;
+  font-size: 0.8125rem;
+  letter-spacing: 0.01em;
+}
+
+.mag-minor   { background: #e0f2fe; color: #0369a1; }   /* light blue  – M < 3 */
+.mag-low     { background: #dcfce7; color: #15803d; }   /* green       – M 3-4 */
+.mag-moderate{ background: #fef9c3; color: #854d0e; }   /* yellow      – M 4-5 */
+.mag-strong  { background: #ffedd5; color: #c2410c; }   /* orange      – M 5-6 */
+.mag-major   { background: #fee2e2; color: #b91c1c; }   /* red         – M 6-7 */
+.mag-great   { background: #4c0519; color: #fecdd3; }   /* dark red    – M ≥ 7 */
+
+/* ----- Depth badge ----- */
+.depth-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.1rem 0.5rem;
+  border-radius: 0.375rem;
+}
+
+.depth-dangkal  { background: #fef3c7; color: #92400e; }
+.depth-menengah { background: #e0e7ff; color: #3730a3; }
+.depth-dalam    { background: #ede9fe; color: #6d28d9; }
+
+/* ----- Pagination button ----- */
+.page-btn {
+  padding: 0.35rem 0.9rem;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.page-btn:hover:not(:disabled) {
+  background: #fff7ed;
+  border-color: #fed7aa;
+  color: #f97316;
+}
+
+.page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ----- Potential pill ----- */
+.potensi-tsunami    { color: #b91c1c; font-weight: 700; }
+.potensi-no-tsunami { color: #64748b; }
+
+/* ----- Latest earthquake card colours ----- */
+.latest-mag-circle {
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Smooth scroll */
+html { scroll-behavior: smooth; }
+
+/* Responsive canvas override: never overflow card */
+canvas {
+  max-width: 100%;
+}
+
+/* Small breakpoint adjustment: reduce KPI value size */
+@media (max-width: 639px) {
+  .kpi-value { font-size: 1.5rem; }
+  .kpi-sub   { max-width: 120px;  }
+}

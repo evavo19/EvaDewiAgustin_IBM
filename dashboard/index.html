@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sales Dashboard 2024</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+
+  <!-- Custom styles -->
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- Tailwind custom config -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50:  '#eff6ff',
+              100: '#dbeafe',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+            }
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'Segoe UI', 'system-ui', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+</head>
+
+<body class="bg-gray-50 text-gray-800 font-sans antialiased">
+
+  <!-- ===== TOP NAVBAR ===== -->
+  <header class="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+    <div class="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <!-- Logo / Icon -->
+        <div class="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.5l5-5 4 4 5-6 4 3"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-base font-bold text-gray-900 leading-tight">Sales Dashboard</h1>
+          <p class="text-xs text-gray-500">Periode: Januari – Desember 2024</p>
+        </div>
+      </div>
+      <!-- Last updated badge -->
+      <span id="lastUpdated" class="hidden sm:inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+        <span class="w-2 h-2 rounded-full bg-green-400 inline-block"></span>
+        Data diperbarui otomatis
+      </span>
+    </div>
+  </header>
+
+  <!-- ===== MAIN CONTENT ===== -->
+  <main class="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+    <!-- ===== FILTER BAR ===== -->
+    <section aria-label="Filter Panel" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6">
+      <div class="flex flex-wrap gap-3 items-end">
+        <!-- Icon label -->
+        <div class="flex items-center gap-2 mr-2">
+          <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 4h18M7 8h10M10 12h4"/>
+          </svg>
+          <span class="text-sm font-semibold text-gray-700">Filter</span>
+        </div>
+
+        <!-- Region Filter -->
+        <div class="flex flex-col gap-1">
+          <label for="filterRegion" class="text-xs font-medium text-gray-500 uppercase tracking-wide">Region</label>
+          <select id="filterRegion" class="filter-select">
+            <option value="all">Semua Region</option>
+            <option value="North">North</option>
+            <option value="South">South</option>
+            <option value="East">East</option>
+            <option value="West">West</option>
+          </select>
+        </div>
+
+        <!-- Product Category Filter -->
+        <div class="flex flex-col gap-1">
+          <label for="filterCategory" class="text-xs font-medium text-gray-500 uppercase tracking-wide">Kategori Produk</label>
+          <select id="filterCategory" class="filter-select">
+            <option value="all">Semua Kategori</option>
+            <option value="Electronics">Electronics</option>
+            <option value="Furniture">Furniture</option>
+            <option value="Clothing">Clothing</option>
+            <option value="Food">Food</option>
+          </select>
+        </div>
+
+        <!-- Customer Type Filter -->
+        <div class="flex flex-col gap-1">
+          <label for="filterCustomer" class="text-xs font-medium text-gray-500 uppercase tracking-wide">Tipe Pelanggan</label>
+          <select id="filterCustomer" class="filter-select">
+            <option value="all">Semua Tipe</option>
+            <option value="Retail">Retail</option>
+            <option value="Wholesale">Wholesale</option>
+          </select>
+        </div>
+
+        <!-- Sales Channel Filter -->
+        <div class="flex flex-col gap-1">
+          <label for="filterChannel" class="text-xs font-medium text-gray-500 uppercase tracking-wide">Sales Channel</label>
+          <select id="filterChannel" class="filter-select">
+            <option value="all">Semua Channel</option>
+            <option value="Online">Online</option>
+            <option value="Offline">Offline</option>
+          </select>
+        </div>
+
+        <!-- Reset Button -->
+        <button id="btnReset" class="ml-auto mt-1 flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm font-medium transition-colors duration-150">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582M20 20v-5h-.581M4.582 9A8 8 0 1119.419 15"/>
+          </svg>
+          Reset Filter
+        </button>
+      </div>
+    </section>
+
+    <!-- ===== KPI CARDS ===== -->
+    <section aria-label="KPI Summary" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+
+      <!-- Total Revenue -->
+      <article class="kpi-card border-l-4 border-blue-500">
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="kpi-label">Total Revenue</p>
+            <p id="kpiRevenue" class="kpi-value">–</p>
+          </div>
+          <div class="kpi-icon bg-blue-50 text-blue-500">
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="w-5 h-5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-2.21 0-4 1.343-4 3s1.79 3 4 3 4 1.343 4 3-1.79 3-4 3m0-18v2m0 16v2"/>
+            </svg>
+          </div>
+        </div>
+        <p id="kpiRevenueSub" class="text-xs text-gray-400 mt-2">Dari semua transaksi</p>
+      </article>
+
+      <!-- Total Transactions -->
+      <article class="kpi-card border-l-4 border-emerald-500">
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="kpi-label">Total Transaksi</p>
+            <p id="kpiTransactions" class="kpi-value">–</p>
+          </div>
+          <div class="kpi-icon bg-emerald-50 text-emerald-500">
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="w-5 h-5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+          </div>
+        </div>
+        <p id="kpiTransactionsSub" class="text-xs text-gray-400 mt-2">Jumlah order tercatat</p>
+      </article>
+
+      <!-- Total Quantity Sold -->
+      <article class="kpi-card border-l-4 border-violet-500">
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="kpi-label">Total Qty Terjual</p>
+            <p id="kpiQuantity" class="kpi-value">–</p>
+          </div>
+          <div class="kpi-icon bg-violet-50 text-violet-500">
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="w-5 h-5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0v10l-8 4m-8-4V7m8 4v10"/>
+            </svg>
+          </div>
+        </div>
+        <p id="kpiQuantitySub" class="text-xs text-gray-400 mt-2">Unit produk terjual</p>
+      </article>
+
+      <!-- Average Discount -->
+      <article class="kpi-card border-l-4 border-amber-500">
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="kpi-label">Rata-rata Diskon</p>
+            <p id="kpiDiscount" class="kpi-value">–</p>
+          </div>
+          <div class="kpi-icon bg-amber-50 text-amber-500">
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="w-5 h-5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M17 17h.01M7.5 17.5l9-9M7 3H5a2 2 0 00-2 2v2m2 10H5a2 2 0 01-2-2v-2m16-4h2a2 2 0 012 2v2m-2-10h2a2 2 0 012 2v2"/>
+            </svg>
+          </div>
+        </div>
+        <p id="kpiDiscountSub" class="text-xs text-gray-400 mt-2">Rata-rata per transaksi</p>
+      </article>
+
+    </section>
+
+    <!-- ===== ROW 1: Sales Trend + Revenue per Region ===== -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+      <div class="chart-card lg:col-span-2">
+        <h2 class="chart-title">📈 Sales Trend (Bulanan)</h2>
+        <div class="chart-wrapper"><canvas id="chartSalesTrend"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h2 class="chart-title">🗺️ Revenue per Region</h2>
+        <div class="chart-wrapper"><canvas id="chartRegion"></canvas></div>
+      </div>
+    </div>
+
+    <!-- ===== ROW 2: Revenue per Category + Qty per Category ===== -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+      <div class="chart-card">
+        <h2 class="chart-title">📦 Revenue per Kategori Produk</h2>
+        <div class="chart-wrapper"><canvas id="chartCategory"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h2 class="chart-title">📊 Qty Terjual per Kategori</h2>
+        <div class="chart-wrapper"><canvas id="chartQtyCategory"></canvas></div>
+      </div>
+    </div>
+
+    <!-- ===== ROW 3: Sales per Rep + Customer Type Dist ===== -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+      <div class="chart-card lg:col-span-2">
+        <h2 class="chart-title">👤 Sales per Sales Representative</h2>
+        <div class="chart-wrapper"><canvas id="chartSalesRep"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h2 class="chart-title">🧑‍🤝‍🧑 Distribusi Tipe Pelanggan</h2>
+        <div class="chart-wrapper chart-wrapper--sm"><canvas id="chartCustomerType"></canvas></div>
+      </div>
+    </div>
+
+    <!-- ===== ROW 4: Payment Method + Sales Channel ===== -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+      <div class="chart-card">
+        <h2 class="chart-title">💳 Metode Pembayaran</h2>
+        <div class="chart-wrapper chart-wrapper--sm"><canvas id="chartPayment"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h2 class="chart-title">🛒 Sales Channel Distribution</h2>
+        <div class="chart-wrapper chart-wrapper--sm"><canvas id="chartChannel"></canvas></div>
+      </div>
+      <div class="chart-card sm:col-span-2 lg:col-span-1">
+        <h2 class="chart-title">🔵 Discount vs Sales (Scatter)</h2>
+        <div class="chart-wrapper chart-wrapper--sm"><canvas id="chartScatter"></canvas></div>
+      </div>
+    </div>
+
+    <!-- ===== ROW 5: Top 10 Highest Sales ===== -->
+    <div class="chart-card mb-6">
+      <h2 class="chart-title">🏆 Top 10 Transaksi Tertinggi</h2>
+      <div class="chart-wrapper chart-wrapper--lg"><canvas id="chartTop10"></canvas></div>
+    </div>
+
+  </main>
+
+  <!-- ===== FOOTER ===== -->
+  <footer class="border-t border-gray-200 text-center py-4 text-xs text-gray-400">
+    Sales Dashboard 2024 &mdash; Data bersumber dari <code>sales_data.json</code>
+  </footer>
+
+  <!-- Main script -->
+  <script src="script.js"></script>
+
+</body>
+</html>
